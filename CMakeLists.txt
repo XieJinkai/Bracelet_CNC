@@ -80,6 +80,7 @@ set(_occt_libs
     ${OpenCASCADE_ModelingData_LIBRARIES}
     ${OpenCASCADE_ModelingAlgorithms_LIBRARIES}
     ${OpenCASCADE_Visualization_LIBRARIES}
+    ${OpenCASCADE_DataExchange_LIBRARIES}
 )
 list(REMOVE_ITEM _occt_libs TKIVtk TKIVtkDraw TKD3DHost TKOpenGles TKOpenGlesTest TKD3DHostTest)
 target_link_libraries(BraceletCNC PRIVATE ${_occt_libs} ${QT_LIBS})
