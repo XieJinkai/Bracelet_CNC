@@ -4,6 +4,7 @@
 
 class QDoubleSpinBox;
 class QSpinBox;
+class QPushButton;
 class OccView;
 
 class MainWindow : public QMainWindow
@@ -15,6 +16,7 @@ public:
 
 private slots:
     void onBraceletParamsChanged();
+    void onExportNcCode();
 
 private:
     void buildUi();
@@ -29,4 +31,5 @@ private:
     QSpinBox* spindleSpeedSpin;
     QDoubleSpinBox* feedRateSpin;
     QDoubleSpinBox* cutDepthSpin;
+    QPushButton* exportNcButton;
 };

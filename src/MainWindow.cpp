@@ -6,6 +6,7 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QPushButton>
 #include <QSpinBox>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -20,7 +21,8 @@ MainWindow::MainWindow(QWidget* parent)
       toolDiameterSpin(nullptr),
       spindleSpeedSpin(nullptr),
       feedRateSpin(nullptr),
-      cutDepthSpin(nullptr)
+      cutDepthSpin(nullptr),
+      exportNcButton(nullptr)
 {
     buildUi();
     onBraceletParamsChanged();
@@ -78,8 +80,11 @@ void MainWindow::buildUi()
     toolLayout->addRow(QStringLiteral("进给速率"), feedRateSpin);
     toolLayout->addRow(QStringLiteral("切入深度"), cutDepthSpin);
 
+    exportNcButton = new QPushButton(QStringLiteral("输出NC代码"), leftPanel);
+
     leftLayout->addWidget(braceletGroup);
     leftLayout->addWidget(toolGroup);
+    leftLayout->addWidget(exportNcButton);
     leftLayout->addStretch(1);
 
     viewWidget = new OccView(central);
@@ -92,6 +97,7 @@ void MainWindow::buildUi()
     connect(outerDiameterSpin, SIGNAL(valueChanged(double)), this, SLOT(onBraceletParamsChanged()));
     connect(innerDiameterSpin, SIGNAL(valueChanged(double)), this, SLOT(onBraceletParamsChanged()));
     connect(widthSpin, SIGNAL(valueChanged(double)), this, SLOT(onBraceletParamsChanged()));
+    connect(exportNcButton, SIGNAL(clicked()), this, SLOT(onExportNcCode()));
 
     setCentralWidget(central);
     setWindowTitle(QStringLiteral("Bracelet CNC"));
@@ -107,4 +113,8 @@ void MainWindow::onBraceletParamsChanged()
         outerDiameterSpin->value(),
         innerDiameterSpin->value(),
         widthSpin->value());
+}
+
+void MainWindow::onExportNcCode()
+{
 }
