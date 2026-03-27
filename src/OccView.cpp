@@ -3,15 +3,23 @@
 #include <AIS_Shape.hxx>
 #include <Aspect_DisplayConnection.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
+#include <BRepAdaptor_Curve.hxx>
 #include <BRepBndLib.hxx>
+#include <BRepFilletAPI_MakeChamfer.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 #include <Bnd_Box.hxx>
+#include <GeomAbs_CurveType.hxx>
 #include <Graphic3d_GraphicDriver.hxx>
 #include <Graphic3d_TypeOfBackfacingModel.hxx>
 #include <OpenGl_GraphicDriver.hxx>
+#include <Quantity_Color.hxx>
 #include <Quantity_NameOfColor.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Edge.hxx>
 #include <V3d_Viewer.hxx>
 #include <WNT_Window.hxx>
+#include <cmath>
 #include <gp_Pnt.hxx>
 #include <Graphic3d_Camera.hxx>
 
@@ -26,6 +34,9 @@ OccView::OccView(QWidget* parent)
       currentOuterDiameter(70.0),
       currentInnerDiameter(60.0),
       currentWidth(20.0),
+      currentChamferDepth(1.0),
+      displayMode(1),
+      transparency(0.0),
       xmin(0),
       ymin(0),
       xmax(0),
@@ -37,14 +48,34 @@ OccView::OccView(QWidget* parent)
     setMinimumSize(400, 400);
 }
 
-void OccView::setBraceletParameters(double outerDiameter, double innerDiameter, double width)
+void OccView::setBraceletParameters(double outerDiameter, double innerDiameter, double width, double chamferDepth)
 {
     currentOuterDiameter = outerDiameter;
     currentInnerDiameter = innerDiameter;
     currentWidth = width;
+    currentChamferDepth = chamferDepth;
     if (initialized) {
         updateShape();
     }
+}
+
+TopoDS_Shape OccView::currentModelShape() const
+{
+    return currentShape;
+}
+
+void OccView::setDisplayWireframe()
+{
+    displayMode = 0;
+    transparency = 0.0;
+    applyDisplayState();
+}
+
+void OccView::setDisplaySolid()
+{
+    displayMode = 1;
+    transparency = 0.0;
+    applyDisplayState();
 }
 
 void OccView::showEvent(QShowEvent* event)
@@ -81,7 +112,8 @@ void OccView::initializeViewer()
     if (!window->IsMapped()) {
         window->Map();
     }
-    view->SetBackgroundColor(Quantity_NOC_GRAY50);
+    Quantity_Color bgColor(0.7216, 0.8627, 0.9294, Quantity_TOC_RGB);
+    view->SetBackgroundColor(bgColor);
     view->SetBackFacingModel(Graphic3d_TypeOfBackfacingModel_DoubleSided);
     view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_WHITE, 0.1, V3d_ZBUFFER);
     view->MustBeResized();
@@ -116,17 +148,68 @@ void OccView::updateShape()
     if (currentWidth <= 0.0) {
         currentWidth = 1.0;
     }
+    double radialThickness = outerRadius - innerRadius;
+    double chamferDepth = currentChamferDepth;
+    if (chamferDepth < 0.0) {
+        chamferDepth = 0.0;
+    }
+    double maxChamferDepth = radialThickness;
+    double halfWidth = currentWidth * 0.5;
+    if (halfWidth < maxChamferDepth) {
+        maxChamferDepth = halfWidth;
+    }
+    if (maxChamferDepth < 0.0) {
+        maxChamferDepth = 0.0;
+    }
+    if (chamferDepth > maxChamferDepth) {
+        chamferDepth = maxChamferDepth;
+    }
 
     TopoDS_Shape outer = BRepPrimAPI_MakeCylinder(outerRadius, currentWidth).Shape();
     TopoDS_Shape inner = BRepPrimAPI_MakeCylinder(innerRadius, currentWidth).Shape();
-    currentShape = BRepAlgoAPI_Cut(outer, inner).Shape();
+    TopoDS_Shape braceletShape = BRepAlgoAPI_Cut(outer, inner).Shape();
+
+    if (chamferDepth > 0.0) {
+        BRepFilletAPI_MakeChamfer chamferMaker(braceletShape);
+        for (TopExp_Explorer edgeExplorer(braceletShape, TopAbs_EDGE); edgeExplorer.More(); edgeExplorer.Next()) {
+            TopoDS_Edge edge = TopoDS::Edge(edgeExplorer.Current());
+            BRepAdaptor_Curve edgeCurve(edge);
+            if (edgeCurve.GetType() != GeomAbs_Circle) {
+                continue;
+            }
+            Standard_Real radius = edgeCurve.Circle().Radius();
+            if (std::abs(radius - outerRadius) > 1.0e-4) {
+                continue;
+            }
+            chamferMaker.Add(chamferDepth, edge);
+        }
+        chamferMaker.Build();
+        if (chamferMaker.IsDone()) {
+            braceletShape = chamferMaker.Shape();
+        }
+    }
+    currentShape = braceletShape;
 
     if (!currentAis.IsNull()) {
         context->Remove(currentAis, false);
     }
     currentAis = new AIS_Shape(currentShape);
     context->Display(currentAis, true);
+    applyDisplayState();
     view->FitAll();
+}
+
+void OccView::applyDisplayState()
+{
+    if (context.IsNull() || view.IsNull() || currentAis.IsNull()) {
+        return;
+    }
+    Quantity_Color silverColor(0.75, 0.75, 0.78, Quantity_TOC_RGB);
+    context->SetColor(currentAis, silverColor, false);
+    context->SetDisplayMode(currentAis, displayMode, false);
+    context->SetTransparency(currentAis, transparency, false);
+    context->Redisplay(currentAis, true);
+    view->Redraw();
 }
 
 void OccView::mousePressEvent(QMouseEvent* event)

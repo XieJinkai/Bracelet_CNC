@@ -1,10 +1,13 @@
 #pragma once
 
+#include <QByteArray>
 #include <QMainWindow>
 
 class QDoubleSpinBox;
 class QSpinBox;
 class QPushButton;
+class QRadioButton;
+class QString;
 class OccView;
 
 class MainWindow : public QMainWindow
@@ -17,9 +20,14 @@ public:
 private slots:
     void onBraceletParamsChanged();
     void onExportNcCode();
+    void onDisplayWireframe();
+    void onDisplaySolid();
 
 private:
     void buildUi();
+    void updateParameterConstraints();
+    QByteArray createChamferNcCode();
+    bool exportChamferModel(const QString& filePath);
 
     OccView* viewWidget;
     QDoubleSpinBox* outerDiameterSpin;
@@ -29,7 +37,9 @@ private:
     QSpinBox* toolIdSpin;
     QDoubleSpinBox* toolDiameterSpin;
     QSpinBox* spindleSpeedSpin;
-    QDoubleSpinBox* feedRateSpin;
+    QSpinBox* feedRateSpin;
     QDoubleSpinBox* cutDepthSpin;
     QPushButton* exportNcButton;
+    QRadioButton* wireframeRadio;
+    QRadioButton* solidRadio;
 };
